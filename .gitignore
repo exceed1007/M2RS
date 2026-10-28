@@ -1,0 +1,27 @@
+# Build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Experiment outputs
+outputs/
+logs/
+
+# Known-protocol corpus (large, download separately)
+data/known_protocol/
+
+# Trained gradient-boosting model (regenerate with `python -m m2rs.train`)
+models/**/*.joblib
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

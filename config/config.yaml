@@ -1,0 +1,23 @@
+dataset:
+  data_dir: ./data/test_protocol   # one capture per protocol
+  tshark: tshark
+  tshark_timeout: 300
+  ascii_threshold: 0.4             # sessions above this printable ratio are treated as text and skipped
+
+boundary:
+  m2rs:
+    theta: -2.8                    # log-odds offset of the decision threshold
+    min_support: 2                 # fewest messages for a length stratum to be decoded on its own
+    pool_max_n: 4                   # strata with at most this many messages use cross-stratum fusion
+    pool_w: 0.7                    # fusion weight on the global (cross-stratum) log-odds
+    widen_prior: 1.0               # scale of the field-width prior
+    max_len: 0                     # maximum field width, 0 = unbounded
+    kind: gb                       # gb = gradient boosting, lr = logistic regression
+
+training:
+  known_dir: ./data/known_protocol  # captures of known protocols
+  out_dir: ./models/mmfi
+  max_files: 200
+  max_messages: 250
+  min_stratum: 3
+  max_field_len: 64

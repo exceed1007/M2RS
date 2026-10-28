@@ -1,0 +1,8 @@
+numpy>=1.21
+scapy>=2.4.5
+scikit-learn>=1.0
+joblib>=1.1
+pyyaml>=6.0
+
+# development
+pytest>=7.0
