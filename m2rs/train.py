@@ -17,7 +17,7 @@ import json
 import random
 from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -93,9 +93,18 @@ def stratum_samples(messages: Sequence[bytes],
 
 
 def build_corpus(files: Sequence[Path], cfg: dict, min_stratum: int,
-                 max_messages: int, first_level: bool = True
+                 max_messages: int, first_level: bool = True,
+                 blobs: Optional[dict] = None,
+                 origins: Optional[dict] = None
                  ) -> Tuple[np.ndarray, np.ndarray, List[str], List[str], Counter, Counter]:
-    """Return X, y, feature names, groups and width counters."""
+    """Return X, y, feature names, groups and width counters.
+
+    ``blobs`` and ``origins`` are optional output dictionaries: when given,
+    ``blobs[group]`` receives the (messages x length) byte matrix of that
+    stratum together with its reference template, and ``origins[group]``
+    receives the capture it came from.  The leave-one-source-out experiment
+    needs both to score a held-out source without rebuilding the corpus.
+    """
     ref = TsharkReference(cfg['dataset'].get('tshark', 'tshark'),
                           int(cfg['dataset'].get('tshark_timeout', 300)))
     thr = float(cfg['dataset'].get('ascii_threshold', 0.4))
@@ -132,10 +141,15 @@ def build_corpus(files: Sequence[Path], cfg: dict, min_stratum: int,
             for r, m in enumerate(members):
                 M[r] = np.frombuffer(m, dtype=np.uint8)
             cut = set(tmpl)
+            group = '%s#%d' % (pcap.stem, length)
+            if blobs is not None:
+                blobs[group] = (M, tuple(sorted(cut)))
+            if origins is not None:
+                origins[group] = str(pcap)
             for j1, row in enumerate(features_for_stratum(M, length)):
                 X.append([row[k] for k in sorted(row)])
                 y.append(1 if (j1 + 1) in cut else 0)
-                groups.append('%s#%d' % (pcap.stem, length))
+                groups.append(group)
             edges = [0] + sorted(cut) + [length]
             for k in range(len(edges) - 1):
                 (last if k == len(edges) - 2 else mid)[edges[k + 1] - edges[k]] += 1

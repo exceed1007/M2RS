@@ -17,23 +17,31 @@ The pipeline follows the four mechanisms of the paper:
 
 ## Results
 
-Micro-averaged over the eight test protocols, with the settings of Section 5.1
-(`theta = -2.8`, `w = 0.7`):
-
-| Protocol | P | R | F1 |
-|---|---|---|---|
-| BACNet | 0.596 | 0.751 | 0.665 |
-| DCERPC | 0.532 | 0.609 | 0.568 |
-| DNP3 | 0.462 | 0.846 | 0.598 |
-| HART-IP | 0.692 | 0.470 | 0.560 |
-| IEC 60870-5-104 | 0.773 | 0.758 | 0.765 |
-| Modbus/TCP | 0.424 | 1.000 | 0.595 |
-| MQTT | 0.858 | 0.846 | 0.852 |
-| S7comm | 0.512 | 0.804 | 0.625 |
-| **Micro average** | **0.544** | **0.716** | **0.618** |
-
-MACRO-averaged F1 is 0.653. Reference boundaries are the first-level fields
+Micro-averaged over the twelve test protocols, with the settings of Section 5.1
+(`theta = -2.8`, `w = 0.7`). Reference boundaries are the first-level fields
 reported by tshark, matched at zero tolerance.
+
+| Protocol | Family | #msgs | #gt | P | R | F1 |
+|---|---|---|---|---|---|---|
+| Modbus/TCP | fieldbus SCADA | 64 | 320 | 0.424 | 1.000 | 0.595 |
+| DNP3 | fieldbus SCADA | 117 | 913 | 0.462 | 0.846 | 0.598 |
+| IEC 60870-5-104 | fieldbus SCADA | 63 | 516 | 0.773 | 0.758 | 0.765 |
+| S7comm | fieldbus SCADA | 302 | 2382 | 0.512 | 0.804 | 0.625 |
+| EtherNet/IP | industrial Ethernet | 592 | 7092 | 0.459 | 0.958 | 0.621 |
+| OMRON FINS | industrial Ethernet | 245 | 3323 | 0.940 | 0.740 | 0.828 |
+| IEC 61850 MMS | substation automation | 259 | 2375 | 0.902 | 0.606 | 0.725 |
+| BACNet | building automation | 100 | 1696 | 0.596 | 0.751 | 0.665 |
+| HART-IP | process instrumentation | 49 | 598 | 0.692 | 0.470 | 0.560 |
+| DCERPC | RPC middleware | 318 | 3657 | 0.532 | 0.609 | 0.568 |
+| MQTT | IoT messaging | 97 | 344 | 0.858 | 0.846 | 0.852 |
+| SNMP | network management | 631 | 5254 | 0.318 | 0.397 | 0.353 |
+| **Micro average (12)** | | **2837** | **28470** | **0.515** | **0.711** | **0.598** |
+
+Micro-averaged F1 over the eight protocols for which published baseline results
+exist is 0.618 (P = 0.544, R = 0.716); macro-averaged F1 over the twelve is
+0.646. SNMP is included deliberately: it is a management protocol with
+recursively encoded data, and it marks where the method stops working
+(Section 5.2.6) rather than flattering the average.
 
 ## Requirements
 
@@ -75,12 +83,27 @@ for session in load_sessions('capture.pcapng'):
         print(len(msg), cuts)
 ```
 
-Reproduce the ablation study of Section 5.2.3:
+Reproduce the experiments of Section 5.2:
 
 ```bash
-python scripts/ablation.py
-python scripts/ablation.py --features   # feature families as well
+python scripts/leave_one_out.py --folds 7                # Table 2: leave-one-source-out
+python scripts/ablation.py --features                    # Tables 3-4: mechanisms, feature families
+python scripts/variable_length.py --pool-w 1.0           # Table 5: variable-length fields
+python scripts/annotation_budget.py                      # Table 6: annotation budget
+python scripts/failure_analysis.py --pool-w 1.0          # Table 7: failure decomposition
 ```
+
+Tables 5 and 7 in the manuscript were computed with the fusion weight at 1.0;
+`--pool-w 1.0` reproduces them, while the other experiments use the 0.7 of
+Section 5.1.
+
+Table 1 comes straight from `evaluate`; the other five need the
+known-protocol corpus (`data/known_protocol/`), which is not shipped — see
+[Data](#data). They build the corpus once and then refit per fold or per
+budget, so a full run is dominated by tshark, not by training.
+
+`--json` on any of them writes the numbers in machine-readable form, and
+`--data` points the evaluation at another capture directory.
 
 ## Model
 
@@ -101,10 +124,11 @@ logistic-regression parameters, whose scores are not calibrated for `theta`;
 
 ## Data
 
-`data/test_protocol/` holds the eight captures used for evaluation, taken from
-public sources (Wireshark SampleCaptures and the ICS capture collections). The
-known-protocol corpus used for training is large (~1 GB) and is not
-distributed here; `data/README.md` lists where to obtain it.
+`data/test_protocol/` holds the twelve captures used for evaluation, taken from
+public sources (Wireshark SampleCaptures and the ICS capture collections); the
+family of each protocol is the one used in Section 5.2.6. The known-protocol
+corpus used for training is large (~1 GB) and is not distributed here;
+`data/README.md` lists where to obtain it and how it is laid out.
 
 ## Repository layout
 
@@ -115,7 +139,14 @@ m2rs/dataset.py     capture -> messages + frames, tshark PDML -> reference bound
 m2rs/metrics.py     one-to-one boundary matching, P/R/F1, micro/macro averaging
 m2rs/train.py       corpus construction and model fitting
 m2rs/cli.py         evaluate / predict entry points
-scripts/ablation.py mechanism and feature-family ablations
+
+scripts/common.py            shared evaluation and refitting helpers
+scripts/ablation.py          mechanism and feature-family ablations (Tables 3-4)
+scripts/leave_one_out.py     leave-one-source-out validation (Table 2)
+scripts/variable_length.py   variable-length field subtask (Table 5)
+scripts/annotation_budget.py accuracy vs. annotated corpus size (Table 6)
+scripts/failure_analysis.py  recall by field width, length, family (Table 7)
+
 tests/              unit tests (no capture or tshark needed)
 ```
 
